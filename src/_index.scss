@@ -1,0 +1,371 @@
+// hard-reset - a hard element reset, as a mixin.
+//
+// `rules` emits the reset with no cascade layer of its own: a kit includes it
+// inside the layer it names (`@layer kit.reset { @include reset.rules; }`), so
+// the kit keeps its own layer order. The prebuilt `reset.css` is this mixin
+// inside `@layer reset`. The reasoning behind each rule is in the README.
+
+@use "sass:list";
+@use "sass:map";
+@use "sass:meta";
+
+// The universal property list, never `all:`. `outline`, `appearance` and
+// `white-space` are absent on purpose; `appearance` is set only where a kit
+// opts in, with `$appearance`.
+@mixin -neutral($cursor-property) {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0 solid;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  vertical-align: baseline;
+  text-align: inherit;
+  text-indent: 0;
+  text-decoration: none;
+  text-decoration-skip-ink: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  word-spacing: inherit;
+  list-style: none;
+  #{$cursor-property}: initial;
+  cursor: var(#{$cursor-property}, inherit);
+  min-width: 0;
+  min-height: 0;
+}
+
+// `$cursor-property` names the custom property the link rule sets the cursor
+// through, so a kit whose own rules claim it can use its own name.
+//
+// `$appearance` takes controls out of the browser's own drawing, one control
+// at a time: a map from a control to what it becomes. A control left out
+// stays native. See `-appearance` below.
+@mixin rules($cursor-property: --reset--cursor, $appearance: ()) {
+  @include -check-appearance($appearance);
+
+  *,
+  *::before,
+  *::after {
+    @include -neutral($cursor-property);
+  }
+
+  // The file input's button is a pseudo-element the universal rule does not
+  // reach. A rule of its own, because one pseudo-element a browser does not
+  // know would drop a whole selector list with it.
+  ::file-selector-button {
+    @include -neutral($cursor-property);
+  }
+
+  // The same button by the name Safari knew it by before 16.4.
+  ::-webkit-file-upload-button {
+    @include -neutral($cursor-property);
+  }
+
+  // The placeholder's own tone: the text color, until a component sets one.
+  ::placeholder {
+    color: inherit;
+    opacity: 1;
+  }
+
+  // A modal dialog's backdrop: clear, as in Chromium, rather than Firefox's
+  // tint.
+  ::backdrop {
+    background: none;
+  }
+
+  // Browsers on small screens leave the text at the size it is given, rather
+  // than inflating it on rotation or in a narrow column: the prefixed property
+  // for iOS Safari, the standard one for Chromium.
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  // `vh` first, for the browsers before `dvh` (Chromium 107, Firefox 100).
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  // `cursor: inherit` ends at `html` as `auto`, which WebKit alone turns into
+  // a hand on links; `default` suppresses it in every engine.
+  a:any-link {
+    #{$cursor-property}: default;
+  }
+
+  // The disclosure marker is an affordance, not formatting.
+  summary {
+    list-style-type: disclosure-closed;
+    list-style-position: inside;
+  }
+
+  details[open] > summary {
+    list-style-type: disclosure-open;
+  }
+
+  // The universal `margin: 0` removes the centering these rely on; an open
+  // dialog is centered whether it is modal or not. Two rules, because a
+  // browser that does not know `:popover-open` would drop the dialog with it.
+  dialog {
+    margin: auto;
+  }
+
+  [popover]:popover-open {
+    margin: auto;
+  }
+
+  // A text field is twenty characters wide, the width `size` and `cols`
+  // default to, in the font's own `ch`; left to itself, each engine averages a
+  // character its own way, from 187 to 241 pixels in the same font. A field
+  // given `size` or `cols` keeps the browser's measure of it.
+  input:is(:not([type]), [type="text"], [type="search"], [type="email"], [type="url"], [type="tel"], [type="password"], [type="number"]):not([size]),
+  textarea:not([cols]) {
+    inline-size: 20ch;
+  }
+
+  // Cells sit edge to edge, with no gap between them.
+  table {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+
+  // `<q>` adds no quotation marks of its own; the text supplies them.
+  q::before,
+  q::after {
+    content: none;
+  }
+
+  fieldset {
+    min-inline-size: 0;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+
+  @include -appearance($appearance, $cursor-property);
+}
+
+// What each control in `$appearance` can become.
+$-appearance-values: (
+  checkbox: (none),
+  radio: (none),
+  range: (none),
+  select: (none, base, base-closed),
+  number: (none),
+  search: (none),
+  color: (none),
+  progress: (none),
+  meter: (none),
+);
+
+@mixin -check-appearance($appearance) {
+  @if meta.type-of($appearance) != map and $appearance != () {
+    @error "$appearance is a map from a control to what it becomes, such as (checkbox: none), not #{meta.inspect($appearance)}.";
+  }
+
+  @each $control, $value in $appearance {
+    @if not map.has-key($-appearance-values, $control) {
+      @error "$appearance has no control #{$control}; it takes #{map.keys($-appearance-values)}.";
+    }
+    @if not list.index(map.get($-appearance-values, $control), $value) {
+      @error "$appearance: #{$control} becomes #{map.get($-appearance-values, $control)}, not #{$value}.";
+    }
+  }
+}
+
+// A control taken out of the browser's drawing, and every part of it an
+// engine draws as a pseudo-element of its own, cleared like any element. Each
+// pseudo-element has a rule to itself, since one a browser does not know
+// would drop a selector list with it.
+@mixin -appearance($appearance, $cursor-property) {
+  $none: ();
+  @each $control, $value in $appearance {
+    @if $value == none {
+      $none: list.append($none, $control);
+    }
+  }
+
+  // Checkbox and radio: nothing is drawn at all, and the reset's zero border
+  // and padding leave them no size; a component gives them both.
+  @each $control in (checkbox, radio) {
+    @if list.index($none, $control) {
+      input[type="#{$control}"] {
+        appearance: none;
+      }
+    }
+  }
+
+  @if list.index($none, range) {
+    input[type="range"] {
+      appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      @include -neutral($cursor-property);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      @include -neutral($cursor-property);
+    }
+
+    input[type="range"]::-moz-range-track {
+      @include -neutral($cursor-property);
+    }
+
+    input[type="range"]::-moz-range-progress {
+      @include -neutral($cursor-property);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      @include -neutral($cursor-property);
+    }
+  }
+
+  // The select: `none` draws no arrow; `base` and `base-closed` make it the
+  // customizable select where a browser supports it, its text at the left
+  // edge and the page's line-height. With `base`, the picker is drawn in the
+  // page too, and cleared; with `base-closed`, the menu stays the system's.
+  $select: map.get($appearance, select);
+  @if $select == none {
+    select {
+      appearance: none;
+    }
+  } @else if $select {
+    select {
+      appearance: base-select;
+    }
+  }
+
+  @if $select == base {
+    ::picker(select) {
+      appearance: base-select;
+      @include -neutral($cursor-property);
+    }
+  }
+
+  // A number field without spin buttons: `textfield` in Firefox, the buttons
+  // themselves in Chromium and WebKit.
+  @if list.index($none, number) {
+    input[type="number"] {
+      appearance: textfield;
+    }
+
+    input[type="number"]::-webkit-inner-spin-button {
+      appearance: none;
+      @include -neutral($cursor-property);
+    }
+
+    input[type="number"]::-webkit-outer-spin-button {
+      appearance: none;
+      @include -neutral($cursor-property);
+    }
+  }
+
+  @if list.index($none, search) {
+    input[type="search"] {
+      appearance: none;
+    }
+
+    // WebKit on Linux draws the cancel button as a mask over the text color;
+    // clearing its background takes the glyph away.
+    input[type="search"]::-webkit-search-cancel-button {
+      appearance: none;
+      @include -neutral($cursor-property);
+    }
+
+    input[type="search"]::-webkit-search-decoration {
+      appearance: none;
+      @include -neutral($cursor-property);
+    }
+
+    input[type="search"]::-webkit-search-results-button {
+      appearance: none;
+      @include -neutral($cursor-property);
+    }
+  }
+
+  // A color field still shows its color: that is its value, not decoration.
+  // Its frame goes.
+  @if list.index($none, color) {
+    input[type="color"] {
+      appearance: none;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      @include -neutral($cursor-property);
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: 0 solid;
+      border-radius: 0;
+    }
+
+    input[type="color"]::-moz-color-swatch {
+      border: 0 solid;
+      border-radius: 0;
+    }
+  }
+
+  @if list.index($none, progress) {
+    progress {
+      appearance: none;
+    }
+
+    progress::-webkit-progress-bar {
+      @include -neutral($cursor-property);
+    }
+
+    progress::-webkit-progress-value {
+      @include -neutral($cursor-property);
+    }
+
+    progress::-moz-progress-bar {
+      @include -neutral($cursor-property);
+    }
+  }
+
+  @if list.index($none, meter) {
+    meter {
+      appearance: none;
+    }
+
+    meter::-webkit-meter-bar {
+      @include -neutral($cursor-property);
+    }
+
+    meter::-webkit-meter-optimum-value {
+      @include -neutral($cursor-property);
+    }
+
+    meter::-webkit-meter-suboptimum-value {
+      @include -neutral($cursor-property);
+    }
+
+    meter::-webkit-meter-even-less-good-value {
+      @include -neutral($cursor-property);
+    }
+
+    meter::-moz-meter-bar {
+      @include -neutral($cursor-property);
+    }
+  }
+}

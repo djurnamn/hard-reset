@@ -1,0 +1,54 @@
+{
+  "name": "hard-reset",
+  "version": "0.1.0",
+  "description": "A hard element reset: an explicit property list in a cascade layer, as prebuilt CSS or a Sass mixin.",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "style": "./dist/reset.css",
+  "exports": {
+    ".": {
+      "sass": "./src/_index.scss",
+      "style": "./dist/reset.css",
+      "default": "./dist/reset.css"
+    },
+    "./css": "./dist/reset.css",
+    "./scss": "./src/_index.scss",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\" && sass --no-source-map src/reset.scss dist/reset.css",
+    "prepublishOnly": "pnpm build",
+    "test": "pnpm build && vitest run"
+  },
+  "keywords": [
+    "css",
+    "reset",
+    "preflight",
+    "cascade-layers",
+    "sass"
+  ],
+  "devDependencies": {
+    "postcss": "^8.5.0",
+    "sass": "^1.101.0",
+    "vitest": "^4.1.9"
+  },
+  "homepage": "https://github.com/djurnamn/hard-reset#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/djurnamn/hard-reset.git"
+  },
+  "bugs": {
+    "url": "https://github.com/djurnamn/hard-reset/issues"
+  },
+  "author": "Björn Djurnamn <bjorn@djurnamn.co>",
+  "license": "MIT"
+}

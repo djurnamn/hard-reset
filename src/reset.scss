@@ -1,0 +1,8 @@
+// The prebuilt stylesheet: the reset in `@layer reset`. Order it against your
+// own layers with a statement that names it first, `@layer reset, base,
+// components;`, and your unlayered CSS still beats it.
+@use "index" as reset;
+
+@layer reset {
+  @include reset.rules;
+}
